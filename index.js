@@ -1,9 +1,14 @@
 const express = require('express')
 const app = express()
 app.use(express.json())
+app.use(express.static('build'))
+
+const morgan = require('morgan')
+morgan.token('RequestBodyToken', function (req, res) { return JSON.stringify(req.body) });
+const morganConfig = morgan(':method :url :status :res[content-length] - :response-time ms :RequestBodyToken')
+app.use(morganConfig)
 
 const cors = require('cors')
-
 app.use(cors())
 
 let notes = [
@@ -27,10 +32,6 @@ let notes = [
     }
   ]
 
-app.get('/', (req, res) => {
-  res.send('<h1>Hello Wdafdsorld!</h1>')
-})
-
 app.get('/api/notes', (req, res) => {
   res.json(notes)
 })
@@ -52,6 +53,7 @@ app.get('/api/notes/:id', (request, response) => {
     return maxId + 1
   }
   
+  // create new note
   app.post('/api/notes', (request, response) => {
     const body = request.body
   
@@ -73,6 +75,15 @@ app.get('/api/notes/:id', (request, response) => {
     response.json(note)
   })
 
+  // toggle importance
+  app.put('/api/notes/:id', (request, response) => {
+    const id = Number(request.params.id)
+    const noteToUpdate = request.body
+    notes = notes.map(note => note.id !== id ? note : noteToUpdate);
+    response.json(noteToUpdate);
+  })
+
+  // delete note
   app.delete('/api/notes/:id', (request, response) => {
     const id = Number(request.params.id)
     notes = notes.filter(note => note.id !== id)
