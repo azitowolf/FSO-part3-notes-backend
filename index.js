@@ -11,29 +11,32 @@ app.use(morganConfig)
 const cors = require('cors')
 app.use(cors())
 
-let notes = [
-    {
-      id: 1,
-      content: "HTML is easy",
-      date: "2019-05-30T17:30:31.098Z",
-      important: true
-    },
-    {
-      id: 2,
-      content: "Browser can execute only Javascript",
-      date: "2019-05-30T18:39:34.091Z",
-      important: false
-    },
-    {
-      id: 3,
-      content: "GET and POOST are the most important methods of HTTP protocol",
-      date: "2019-05-30T19:20:14.298Z",
-      important: true
-    }
-  ]
+const mongoose = require('mongoose');
+
+const noteSchema = new mongoose.Schema({
+  content: {
+    type: String,
+    minlength: 5,
+    required: true
+  },
+  date: { 
+    type: Date,
+    required: true
+  },
+  important: Boolean
+})
+
+// creates generator function
+const Note = mongoose.model('Note', noteSchema)
+
+// BEGIN API ENDPOINTS
 
 app.get('/api/notes', (req, res) => {
-  res.json(notes)
+  const filter = {};
+  Note.find(filter)
+  .then((notes) => {
+    response.json(notes.map(note => note.toJSON()))
+  }); 
 })
 
 app.get('/api/notes/:id', (request, response) => {
@@ -54,25 +57,20 @@ app.get('/api/notes/:id', (request, response) => {
   }
   
   // create new note
-  app.post('/api/notes', (request, response) => {
+  app.post('/api/notes', (request, response, next) => {
     const body = request.body
   
-    if (!body.content) {
-      return response.status(400).json({ 
-        error: 'content missing' 
-      })
-    }
-  
-    const note = {
+    const note = new Note({
       content: body.content,
       important: body.important || false,
       date: new Date(),
-      id: generateId(),
-    }
+    })
   
-    notes = notes.concat(note)
-  
-    response.json(note)
+    note.save()
+      .then(savedNote => {
+        response.json(savedNote.toJSON())
+      })
+      .catch(error => next(error))
   })
 
   // toggle importance
@@ -90,6 +88,20 @@ app.get('/api/notes/:id', (request, response) => {
   
     response.status(204).end()
   })
+
+  const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+  
+    if (error.name === 'CastError') {
+      return response.status(400).send({ error: 'malformatted id' })
+    } else if (error.name === 'ValidationError') {
+      return response.status(400).json({ error: error.message })
+    }
+  
+    next(error)
+  }
+
+  app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
